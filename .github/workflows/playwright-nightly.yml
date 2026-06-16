@@ -1,0 +1,52 @@
+name: Nachtelijke Playwright-tests
+on:
+    # Hiermee kun je ook deze workflow handmatig testen
+    workflow_dispatch:
+
+    # Iedere nacht om 02:17 uur Nedelandse tijd.
+    schedule:
+    - cron: '17 2 * * *'
+      timezone: 'Europe/Amsterdam'
+
+jobs:
+  test:
+    name: Playwright smoke-tests
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Repository ophalen
+      uses: actions/checkout@v6
+
+    - name: Node.js instsalleren
+      uses: actions/setup-node@v6
+      with:
+        node-version: 'lts/*'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+
+    - name: Run Playwright-tests
+      run: npx playwright test
+
+    - name: Save Playwright HTML-report
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: nightly-playwright-report-${{ github.run_number }}
+        path: playwright-report/
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Traces, screenshots en video's opslaan
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: nightly-playwright-test-results-${{ github.run_number }}
+        path: test-results/
+        retention-days: 30
+        if-no-files-found: ignore
