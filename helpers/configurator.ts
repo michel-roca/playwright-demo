@@ -59,95 +59,159 @@ async function getFirstVisibleTextMatch(
 /*
  * Klikt op de zichtbare knop "Volgende stap".
  */
-async function getVisibleNextButton(
+async function isStepReady(
   configurator: Locator,
-  stepTitle: RegExp,
-): Promise<Locator> {
-  const titles = configurator.getByText(stepTitle);
-  const count = await titles.count();
+  step: ConfiguratorStep,
+): Promise<boolean> {
+  if (step.type === 'text') {
+    return configurator
+      .getByRole('textbox', {
+        name: step.fieldName,
+      })
+      .first()
+      .isVisible()
+      .catch(() => false);
+  }
 
-  for (
-    let index = 0;
-    index < count;
-    index += 1
-  ) {
-    const title = titles.nth(index);
+  if (step.optionRadioName) {
+    return configurator
+      .getByRole('radio', {
+        name: step.optionRadioName,
+      })
+      .first()
+      .isVisible()
+      .catch(() => false);
+  }
 
-    if (
-      !(await title
-        .isVisible()
-        .catch(() => false))
-    ) {
-      continue;
-    }
+  if (step.optionSelector) {
+    return configurator
+      .locator(step.optionSelector)
+      .first()
+      .isVisible()
+      .catch(() => false);
+  }
 
-    /*
-     * Zoek de dichtstbijzijnde configuratiestap
-     * die een knop "Volgende stap" bevat.
-     */
-    const stepContainer = title.locator(
-      'xpath=ancestor::*[.//a[@data-way="next"]][1]',
+  if (step.optionImageName) {
+    const images = configurator.getByRole(
+      'img',
+      {
+        name: step.optionImageName,
+      },
     );
 
-    const nextButton = stepContainer
-      .locator('a[data-way="next"]')
-      .filter({
-        hasText: /volgende stap/i,
-      })
-      .first();
+    const count = await images.count();
 
-    if (
-      await nextButton
-        .isVisible()
-        .catch(() => false)
+    for (
+      let index = 0;
+      index < count;
+      index += 1
     ) {
-      return nextButton;
+      if (
+        await images
+          .nth(index)
+          .isVisible()
+          .catch(() => false)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (step.optionText) {
+    const options = configurator.getByText(
+      step.optionText,
+      {
+        exact:
+          typeof step.optionText ===
+          'string',
+      },
+    );
+
+    const count = await options.count();
+
+    for (
+      let index = 0;
+      index < count;
+      index += 1
+    ) {
+      if (
+        await options
+          .nth(index)
+          .isVisible()
+          .catch(() => false)
+      ) {
+        return true;
+      }
     }
   }
 
-  throw new Error(
-    `Geen zichtbare knop "Volgende stap" gevonden voor: ${stepTitle}`,
-  );
+  return false;
+}
+
+async function waitForStepReady(
+  configurator: Locator,
+  step: ConfiguratorStep,
+  timeout = 8_000,
+): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        isStepReady(
+          configurator,
+          step,
+        ),
+      {
+        timeout,
+        message:
+          `Wachten tot configuratiestap gereed is: ${step.stepTitle}`,
+      },
+    )
+    .toBe(true);
 }
 
 async function clickNextStep(
   configurator: Locator,
-  stepTitle: RegExp,
+  currentStep: ConfiguratorStep,
+  nextStep: ConfiguratorStep,
 ): Promise<void> {
-  const nextStepButton =
-    await getVisibleNextButton(
-      configurator,
-      stepTitle,
-    );
-
-  /*
-   * De configurator verwerkt keuzes en prijzen
-   * soms iets langzamer in GitHub Actions.
-   *
-   * We controleren daarom na de klik of de
-   * huidige stap echt gesloten is.
-   */
   for (
     let attempt = 1;
     attempt <= 3;
     attempt += 1
   ) {
+    const nextStepButton = configurator
+      .locator(
+        'a[data-way="next"]:visible',
+      )
+      .filter({
+        hasText: /volgende stap/i,
+      })
+      .first();
+
+    await expect(
+      nextStepButton,
+    ).toBeVisible({
+      timeout: 8_000,
+    });
+
     await nextStepButton.click({
       force: true,
     });
 
     try {
-      await expect(
-        nextStepButton,
-      ).toBeHidden({
-        timeout: 4_000,
-      });
+      await waitForStepReady(
+        configurator,
+        nextStep,
+        6_000,
+      );
 
       return;
     } catch {
       if (attempt === 3) {
         throw new Error(
-          `Configuratiestap is na 3 pogingen niet doorgegaan: ${stepTitle}`,
+          `Configuratiestap is niet doorgegaan van ${currentStep.stepTitle} naar ${nextStep.stepTitle}`,
         );
       }
     }
@@ -381,9 +445,13 @@ export async function runConfigurator(
       continue;
     }
 
+    const nextStep =
+      steps[index + 1];
+
     await clickNextStep(
       configurator,
-      step.stepTitle,
+      step,
+      nextStep,
     );
   }
 }

@@ -12,11 +12,10 @@ import {
 } from '../helpers/cookies';
 
 import {
+  addToCartAndOpenCart,
   assertHandlingFee,
-  clickElementWithDom,
   getCartProductRow,
   openAndCheckCheckout,
-  openCartFromConfirmation,
 } from '../helpers/cart';
 
 import {
@@ -79,15 +78,25 @@ for (const shop of shops) {
                   )
                   .first();
 
-              await clickElementWithDom(
-                addToCartButton,
-              );
             },
           );
 
+          const addToCartButton = page
+            .locator(
+              'main a.add-cart.cart-btn:visible',
+            )
+            .first();
+            
+          await expect(
+            addToCartButton,
+          ).toBeVisible({
+            timeout: 10_000,
+          });
+
           const cartMain =
-            await openCartFromConfirmation(
+            await addToCartAndOpenCart(
               page,
+              addToCartButton,
             );
 
           await test.step(
@@ -220,14 +229,26 @@ for (const shop of shops) {
                 .locator(shop.selectors.addToCartButton)
                 .first();
 
-              await clickElementWithDom(
-                addToCartButton,
-              );
             },
           );
 
+          const addToCartButton = page
+            .locator(
+              'main a.add-cart.cart-btn:visible',
+            )
+            .first();
+            
+          await expect(
+            addToCartButton,
+          ).toBeVisible({
+            timeout: 10_000,
+          });
+
           const cartMain =
-            await openCartFromConfirmation(page);
+            await addToCartAndOpenCart(
+              page,
+              addToCartButton,
+            );
 
           await test.step(
             'Product en aantal in winkelwagen controleren',

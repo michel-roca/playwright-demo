@@ -23,8 +23,9 @@ export async function clickElementWithDom(
 /*
  * Controleert de bevestigingsmodal en opent vervolgens de cart.
  */
-export async function openCartFromConfirmation(
+export async function addToCartAndOpenCart(
   page: Page,
+  addToCartButton: Locator,
 ): Promise<Locator> {
   const cartDialog = page
     .getByRole('dialog')
@@ -35,13 +36,11 @@ export async function openCartFromConfirmation(
     .first();
 
   /*
-   * Op GitHub Actions kan de add-to-cart-aanvraag
-   * duidelijk langer duren dan lokaal.
-   *
-   * Sommige webshopflows kunnen bovendien direct
-   * naar de winkelwagen navigeren.
+   * Start beide wachters vóór de klik,
+   * zodat een snelle modal of redirect
+   * niet gemist kan worden.
    */
-  const result = await Promise.race([
+  const cartOutcome = Promise.any([
     cartDialog
       .waitFor({
         state: 'visible',
@@ -51,20 +50,34 @@ export async function openCartFromConfirmation(
 
     page
       .waitForURL(/\/cart\/?$/i, {
-        waitUntil: 'domcontentloaded',
+        waitUntil:
+          'domcontentloaded',
         timeout: 20_000,
       })
       .then(() => 'cart' as const),
   ]);
 
-  if (result === 'dialog') {
-    await expect(cartDialog).toContainText(
-      /dit product is toegevoegd aan de winkelwagen/i,
-    );
+  await addToCartButton.click({
+    force: true,
+  });
 
+  let result:
+    | 'dialog'
+    | 'cart';
+
+  try {
+    result = await cartOutcome;
+  } catch {
+    throw new Error(
+      'Na de add-to-cart-klik verscheen geen bevestiging en werd de winkelwagen niet geopend.',
+    );
+  }
+
+  if (result === 'dialog') {
     const continueToCartButton =
       cartDialog.getByRole('link', {
-        name: /verder naar bestellen/i,
+        name:
+          /verder naar bestellen/i,
       });
 
     await expect(
@@ -74,11 +87,17 @@ export async function openCartFromConfirmation(
     });
 
     await Promise.all([
-      page.waitForURL(/\/cart\/?$/i, {
-        waitUntil: 'domcontentloaded',
-        timeout: 20_000,
+      page.waitForURL(
+        /\/cart\/?$/i,
+        {
+          waitUntil:
+            'domcontentloaded',
+          timeout: 20_000,
+        },
+      ),
+      continueToCartButton.click({
+        force: true,
       }),
-      continueToCartButton.click(),
     ]);
   }
 
@@ -89,11 +108,12 @@ export async function openCartFromConfirmation(
     },
   );
 
-  const cartMain = page.locator('main');
+  const cartMain =
+    page.locator('main');
 
-  await expect(cartMain).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(
+    cartMain,
+  ).toBeVisible();
 
   return cartMain;
 }
