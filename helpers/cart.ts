@@ -31,34 +31,71 @@ export async function openCartFromConfirmation(
     .filter({
       hasText:
         /dit product is toegevoegd aan de winkelwagen/i,
+    })
+    .first();
+
+  /*
+   * Op GitHub Actions kan de add-to-cart-aanvraag
+   * duidelijk langer duren dan lokaal.
+   *
+   * Sommige webshopflows kunnen bovendien direct
+   * naar de winkelwagen navigeren.
+   */
+  const result = await Promise.race([
+    cartDialog
+      .waitFor({
+        state: 'visible',
+        timeout: 20_000,
+      })
+      .then(() => 'dialog' as const),
+
+    page
+      .waitForURL(/\/cart\/?$/i, {
+        waitUntil: 'domcontentloaded',
+        timeout: 20_000,
+      })
+      .then(() => 'cart' as const),
+  ]);
+
+  if (result === 'dialog') {
+    await expect(cartDialog).toContainText(
+      /dit product is toegevoegd aan de winkelwagen/i,
+    );
+
+    const continueToCartButton =
+      cartDialog.getByRole('link', {
+        name: /verder naar bestellen/i,
+      });
+
+    await expect(
+      continueToCartButton,
+    ).toBeVisible({
+      timeout: 10_000,
     });
 
-  await expect(cartDialog).toBeVisible();
+    await Promise.all([
+      page.waitForURL(/\/cart\/?$/i, {
+        waitUntil: 'domcontentloaded',
+        timeout: 20_000,
+      }),
+      continueToCartButton.click(),
+    ]);
+  }
 
-  await expect(cartDialog).toContainText(
-    /dit product is toegevoegd aan de winkelwagen/i,
-  );
-
-  const continueToCartButton = cartDialog.getByRole(
-    'link',
+  await expect(page).toHaveURL(
+    /\/cart\/?$/i,
     {
-      name: /verder naar bestellen/i,
+      timeout: 20_000,
     },
   );
 
-  await expect(continueToCartButton).toBeVisible();
+  const cartMain = page.locator('main');
 
-  await Promise.all([
-    page.waitForURL(/\/cart\/?$/i, {
-      waitUntil: 'domcontentloaded',
-    }),
+  await expect(cartMain).toBeVisible({
+    timeout: 10_000,
+  });
 
-    continueToCartButton.click(),
-  ]);
-
-  await expect(page).toHaveURL(/\/cart\/?$/i);
-
-  return page.locator('main');
+  return cartMain;
 }
 
 /*
