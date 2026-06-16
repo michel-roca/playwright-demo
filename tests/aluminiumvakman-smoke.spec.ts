@@ -94,9 +94,27 @@ for (const shop of shops) {
           });
 
           const cartMain =
-            await addToCartAndOpenCart(
-              page,
-              addToCartButton,
+            await test.step(
+              'Product toevoegen aan winkelwagen',
+              async () => {
+                const addToCartButton =
+                  page
+                    .locator(
+                      shop.selectors
+                        .addToCartButton,
+                    )
+                    .filter({
+                      hasText:
+                        /in mijn winkelwagen/i,
+                    })
+                    .first();
+
+                return addToCartAndOpenCart(
+                  page,
+                  addToCartButton,
+                  product.cartTitle,
+                );
+              },
             );
 
           await test.step(
@@ -222,16 +240,6 @@ for (const shop of shops) {
             },
           );
 
-          await test.step(
-            'Product toevoegen aan winkelwagen',
-            async () => {
-              const addToCartButton = page
-                .locator(shop.selectors.addToCartButton)
-                .first();
-
-            },
-          );
-
           const addToCartButton = page
             .locator(
               'main a.add-cart.cart-btn:visible',
@@ -245,9 +253,27 @@ for (const shop of shops) {
           });
 
           const cartMain =
-            await addToCartAndOpenCart(
-              page,
-              addToCartButton,
+            await test.step(
+              'Product toevoegen aan winkelwagen',
+              async () => {
+                const addToCartButton =
+                  page
+                    .locator(
+                      shop.selectors
+                        .addToCartButton,
+                    )
+                    .filter({
+                      hasText:
+                        /in mijn winkelwagen/i,
+                    })
+                    .first();
+
+                return addToCartAndOpenCart(
+                  page,
+                  addToCartButton,
+                  product.cartTitle,
+                );
+              },
             );
 
           await test.step(

@@ -26,6 +26,7 @@ export async function clickElementWithDom(
 export async function addToCartAndOpenCart(
   page: Page,
   addToCartButton: Locator,
+  expectedProductTitle: RegExp,
 ): Promise<Locator> {
   const cartDialog = page
     .getByRole('dialog')
@@ -35,85 +36,57 @@ export async function addToCartAndOpenCart(
     })
     .first();
 
-  /*
-   * Start beide wachters vóór de klik,
-   * zodat een snelle modal of redirect
-   * niet gemist kan worden.
-   */
-  const cartOutcome = Promise.any([
-    cartDialog
-      .waitFor({
-        state: 'visible',
-        timeout: 20_000,
-      })
-      .then(() => 'dialog' as const),
-
-    page
-      .waitForURL(/\/cart\/?$/i, {
-        waitUntil:
-          'domcontentloaded',
-        timeout: 20_000,
-      })
-      .then(() => 'cart' as const),
-  ]);
-
-  await addToCartButton.click({
-    force: true,
+  await expect(
+    addToCartButton,
+  ).toBeVisible({
+    timeout: 15_000,
   });
 
-  let result:
-    | 'dialog'
-    | 'cart';
+  await addToCartButton.click();
 
-  try {
-    result = await cartOutcome;
-  } catch {
-    throw new Error(
-      'Na de add-to-cart-klik verscheen geen bevestiging en werd de winkelwagen niet geopend.',
-    );
-  }
+  await expect(
+    cartDialog,
+  ).toBeVisible({
+    timeout: 30_000,
+  });
 
-  if (result === 'dialog') {
-    const continueToCartButton =
-      cartDialog.getByRole('link', {
-        name:
-          /verder naar bestellen/i,
-      });
-
-    await expect(
-      continueToCartButton,
-    ).toBeVisible({
-      timeout: 10_000,
+  const continueToCartButton =
+    cartDialog.getByRole('link', {
+      name: /verder naar bestellen/i,
     });
 
-    await Promise.all([
-      page.waitForURL(
-        /\/cart\/?$/i,
-        {
-          waitUntil:
-            'domcontentloaded',
-          timeout: 20_000,
-        },
-      ),
-      continueToCartButton.click({
-        force: true,
-      }),
-    ]);
-  }
-
-  await expect(page).toHaveURL(
-    /\/cart\/?$/i,
-    {
-      timeout: 20_000,
-    },
-  );
+  await Promise.all([
+    page.waitForURL(
+      /\/cart\/?$/i,
+      {
+        waitUntil:
+          'domcontentloaded',
+        timeout: 30_000,
+      },
+    ),
+    continueToCartButton.click(),
+  ]);
 
   const cartMain =
     page.locator('main');
 
   await expect(
     cartMain,
-  ).toBeVisible();
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const productRow =
+    getCartProductRow(
+      cartMain,
+      expectedProductTitle,
+    );
+
+  await expect(
+    productRow,
+  ).toBeVisible({
+    timeout: 15_000,
+  });
 
   return cartMain;
 }

@@ -14,8 +14,7 @@ concurrency:
 
 jobs:
   test:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest    
 
     steps:
     - name: Repository ophalen
@@ -29,6 +28,9 @@ jobs:
 
     - name: Install dependencies
       run: npm ci
+
+    - name: TypeScript controleren
+      run: npx tsc -p tsconfig.json --noEmit
       
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
