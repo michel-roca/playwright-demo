@@ -19,23 +19,41 @@ async function getFirstVisibleTextMatch(
     exact: typeof text === 'string',
   });
 
-  const count = await matches.count();
+  let visibleIndex = -1;
 
-  for (let index = 0; index < count; index += 1) {
-    const candidate = matches.nth(index);
+  await expect
+    .poll(
+      async () => {
+        const count = await matches.count();
 
-    if (
-      await candidate
-        .isVisible()
-        .catch(() => false)
-    ) {
-      return candidate;
-    }
-  }
+        for (
+          let index = 0;
+          index < count;
+          index += 1
+        ) {
+          const candidate = matches.nth(index);
 
-  throw new Error(
-    `Geen zichtbare configuratieoptie gevonden voor: ${text}`,
-  );
+          const isVisible = await candidate
+            .isVisible()
+            .catch(() => false);
+
+          if (isVisible) {
+            visibleIndex = index;
+            return true;
+          }
+        }
+
+        return false;
+      },
+      {
+        timeout: 10_000,
+        message:
+          `Wachten op zichtbare configuratieoptie: ${text}`,
+      },
+    )
+    .toBe(true);
+
+  return matches.nth(visibleIndex);
 }
 
 /*
@@ -45,19 +63,21 @@ async function clickNextStep(
   configurator: Locator,
 ): Promise<void> {
   const nextStepButton = configurator
-    .locator('a:visible')
-    .filter({
-      hasText:
-        /volgende stap/i,
-    })
+    .locator('a[data-way="next"]:visible')
     .first();
 
-  await expect(
-    nextStepButton,
-  ).toBeVisible();
+  await expect(nextStepButton).toBeVisible();
 
-  await nextStepButton.click();
+  /*
+   * De knop beweegt tijdens de animatie van de configurator.
+   * force voorkomt dat Playwright blijft wachten op een
+   * volledig stabiele positie.
+   */
+  await nextStepButton.click({
+    force: true,
+  });
 }
+
 
 /*
  * Rondt de configuratie af.
@@ -153,15 +173,49 @@ async function executeChoiceStep(
       .locator(step.optionSelector)
       .first();
   } else if (step.optionImageName) {
-    const image = configurator
-      .getByRole('img', {
+    const images = configurator.getByRole(
+      'img',
+      {
         name: step.optionImageName,
-      })
-      .first();
+      },
+    );
 
-    await expect(image).toBeVisible();
+    let visibleImageIndex = -1;
 
-    option = image.locator('..');
+    await expect
+      .poll(
+        async () => {
+          const count = await images.count();
+
+          for (
+            let index = 0;
+            index < count;
+            index += 1
+          ) {
+            if (
+              await images
+                .nth(index)
+                .isVisible()
+                .catch(() => false)
+            ) {
+              visibleImageIndex = index;
+              return true;
+            }
+          }
+
+          return false;
+        },
+        {
+          timeout: 10_000,
+          message:
+            `Wachten op zichtbare configuratieafbeelding: ${step.optionImageName}`,
+        },
+      )
+      .toBe(true);
+
+    option = images
+      .nth(visibleImageIndex)
+      .locator('..');
   } else if (step.optionText) {
     option = await getFirstVisibleTextMatch(
       configurator,
