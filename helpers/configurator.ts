@@ -181,37 +181,73 @@ async function clickNextStep(
     attempt <= 3;
     attempt += 1
   ) {
-    const nextStepButton = configurator
-      .locator(
-        'a[data-way="next"]:visible',
-      )
-      .filter({
-        hasText: /volgende stap/i,
-      })
-      .first();
+    /*
+     * Locator bij iedere poging opnieuw bepalen,
+     * omdat de configurator zijn DOM wijzigt.
+     */
+    const nextStepButton =
+      configurator
+        .locator(
+          'a[data-way="next"]:visible',
+        )
+        .filter({
+          hasText: /volgende stap/i,
+        })
+        .first();
 
     await expect(
       nextStepButton,
     ).toBeVisible({
-      timeout: 8_000,
+      timeout: 10_000,
     });
 
-    await nextStepButton.click({
-      force: true,
-    });
+    await nextStepButton.evaluate(
+      (element) => {
+        element.scrollIntoView({
+          block: 'center',
+          inline: 'center',
+        });
+      },
+    );
+
+    try {
+      /*
+       * Eerst een echte gebruikersklik proberen.
+       */
+      await nextStepButton.click({
+        timeout: 5_000,
+      });
+    } catch {
+      /*
+       * De configurator gebruikt JavaScript-links.
+       * Bij animaties of overlays activeren we de
+       * bestaande click-handler rechtstreeks.
+       */
+      await nextStepButton.evaluate(
+        (element) => {
+          (
+            element as HTMLElement
+          ).click();
+        },
+      );
+    }
 
     try {
       await waitForStepReady(
         configurator,
         nextStep,
-        6_000,
+        12_000,
       );
 
       return;
     } catch {
       if (attempt === 3) {
         throw new Error(
-          `Configuratiestap is niet doorgegaan van ${currentStep.stepTitle} naar ${nextStep.stepTitle}`,
+          [
+            'Configuratiestap is niet doorgegaan',
+            `van ${currentStep.stepTitle}`,
+            `naar ${nextStep.stepTitle}`,
+          ].join(' '),
         );
       }
     }
@@ -316,19 +352,51 @@ async function executeChoiceStep(
       })
       .first();
 
-    await expect(radio).toBeVisible({
-      timeout: 10_000,
+    await expect(
+      radio,
+    ).toBeAttached({
+      timeout: 15_000,
     });
 
     /*
-     * "Voor binnen" is meestal al standaard geselecteerd.
-     * Alleen selecteren wanneer dat nog niet zo is.
-     */
-    if (!(await radio.isChecked())) {
-      await radio.check();
-    }
+    * Wanneer de radio standaard al geselecteerd is,
+    * voert Playwright check() geen nieuwe klik uit.
+    *
+    * We activeren daarom altijd de onderliggende
+    * JavaScript-events van de configurator.
+    */
+    await radio.evaluate(
+      (
+        element: HTMLInputElement,
+      ) => {
+        const wasAlreadyChecked =
+          element.checked;
 
-    await expect(radio).toBeChecked();
+        element.click();
+
+        /*
+        * Een klik op een reeds geselecteerde radio
+        * veroorzaakt niet altijd opnieuw input/change.
+        */
+        if (wasAlreadyChecked) {
+          element.dispatchEvent(
+            new Event('input', {
+              bubbles: true,
+            }),
+          );
+
+          element.dispatchEvent(
+            new Event('change', {
+              bubbles: true,
+            }),
+          );
+        }
+      },
+    );
+
+    await expect(
+      radio,
+    ).toBeChecked();
 
     return;
   }

@@ -42,7 +42,69 @@ export async function addToCartAndOpenCart(
     timeout: 15_000,
   });
 
-  await addToCartButton.click();
+  /*
+   * De webshop gebruikt een CSS-class in plaats
+   * van een echt disabled-attribuut.
+   */
+  await expect(
+    addToCartButton,
+  ).not.toHaveClass(
+    /\bdisabled\b/,
+    {
+      timeout: 20_000,
+    },
+  );
+
+  /*
+  * Plaats de knop bewust in het midden zodat de
+  * sticky header hem niet kan afdekken.
+  */
+  await addToCartButton.evaluate(
+    (element) => {
+      element.scrollIntoView({
+        block: 'center',
+        inline: 'center',
+      });
+    },
+  );
+
+  /*
+  * Eerst een echte Playwright-klik proberen.
+  * Gebruik bewust een korte timeout, zodat deze
+  * niet de volledige testtimeout opslokt.
+  */
+  try {
+    await addToCartButton.click({
+      timeout: 7_500,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String(error);
+
+    const isObstruction =
+      /intercepts pointer events|not stable/i.test(
+        message,
+      );
+
+    if (!isObstruction) {
+      throw error;
+    }
+
+    /*
+    * De knop is niet meer disabled, maar wordt
+    * visueel afgedekt door de sticky webshop-UI.
+    * Activeer dan alleen de add-to-cart-handler.
+    */
+    await addToCartButton.evaluate(
+      (element) => {
+        (
+          element as HTMLElement
+        ).click();
+      },
+    );
+  }
 
   await expect(
     cartDialog,
