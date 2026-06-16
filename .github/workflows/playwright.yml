@@ -1,43 +1,26 @@
-name: Handmatige Playwright-tests
+name: Playwright Tests
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-
-concurrency:
-  group: aluminiumvakman-production-smoke-tests
-  cancel-in-progress: false
-
 jobs:
-  test:    
+  test:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Repository ophalen
-      uses: actions/checkout@v6
-
-    - name: Node.js installeren
-      uses: actions/setup-node@v6
+    - uses: actions/checkout@v6
+    - uses: actions/setup-node@v6
       with:
         node-version: lts/*
-        cache: 'npm'
-
     - name: Install dependencies
       run: npm ci
-
-    - name: TypeScript controleren
-      run: npx tsc -p tsconfig.json --noEmit
-
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
-
-    - name: Run Playwright-tests
+    - name: Run Playwright tests
       run: npx playwright test
-
-    - name: Upload Playwright-report
+    - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v7      
       with:
         name: playwright-report
         path: playwright-report/

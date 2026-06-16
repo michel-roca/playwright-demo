@@ -19,239 +19,44 @@ async function getFirstVisibleTextMatch(
     exact: typeof text === 'string',
   });
 
-  let visibleIndex = -1;
+  const count = await matches.count();
 
-  await expect
-    .poll(
-      async () => {
-        const count = await matches.count();
+  for (let index = 0; index < count; index += 1) {
+    const candidate = matches.nth(index);
 
-        for (
-          let index = 0;
-          index < count;
-          index += 1
-        ) {
-          const candidate = matches.nth(index);
+    if (
+      await candidate
+        .isVisible()
+        .catch(() => false)
+    ) {
+      return candidate;
+    }
+  }
 
-          const isVisible = await candidate
-            .isVisible()
-            .catch(() => false);
-
-          if (isVisible) {
-            visibleIndex = index;
-            return true;
-          }
-        }
-
-        return false;
-      },
-      {
-        timeout: 10_000,
-        message:
-          `Wachten op zichtbare configuratieoptie: ${text}`,
-      },
-    )
-    .toBe(true);
-
-  return matches.nth(visibleIndex);
+  throw new Error(
+    `Geen zichtbare configuratieoptie gevonden voor: ${text}`,
+  );
 }
 
 /*
  * Klikt op de zichtbare knop "Volgende stap".
  */
-async function isStepReady(
-  configurator: Locator,
-  step: ConfiguratorStep,
-): Promise<boolean> {
-  if (step.type === 'text') {
-    return configurator
-      .getByRole('textbox', {
-        name: step.fieldName,
-      })
-      .first()
-      .isVisible()
-      .catch(() => false);
-  }
-
-  if (step.optionRadioName) {
-    return configurator
-      .getByRole('radio', {
-        name: step.optionRadioName,
-      })
-      .first()
-      .isVisible()
-      .catch(() => false);
-  }
-
-  if (step.optionSelector) {
-    return configurator
-      .locator(step.optionSelector)
-      .first()
-      .isVisible()
-      .catch(() => false);
-  }
-
-  if (step.optionImageName) {
-    const images = configurator.getByRole(
-      'img',
-      {
-        name: step.optionImageName,
-      },
-    );
-
-    const count = await images.count();
-
-    for (
-      let index = 0;
-      index < count;
-      index += 1
-    ) {
-      if (
-        await images
-          .nth(index)
-          .isVisible()
-          .catch(() => false)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  if (step.optionText) {
-    const options = configurator.getByText(
-      step.optionText,
-      {
-        exact:
-          typeof step.optionText ===
-          'string',
-      },
-    );
-
-    const count = await options.count();
-
-    for (
-      let index = 0;
-      index < count;
-      index += 1
-    ) {
-      if (
-        await options
-          .nth(index)
-          .isVisible()
-          .catch(() => false)
-      ) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-async function waitForStepReady(
-  configurator: Locator,
-  step: ConfiguratorStep,
-  timeout = 8_000,
-): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        isStepReady(
-          configurator,
-          step,
-        ),
-      {
-        timeout,
-        message:
-          `Wachten tot configuratiestap gereed is: ${step.stepTitle}`,
-      },
-    )
-    .toBe(true);
-}
-
 async function clickNextStep(
   configurator: Locator,
-  currentStep: ConfiguratorStep,
-  nextStep: ConfiguratorStep,
 ): Promise<void> {
-  for (
-    let attempt = 1;
-    attempt <= 3;
-    attempt += 1
-  ) {
-    /*
-     * Locator bij iedere poging opnieuw bepalen,
-     * omdat de configurator zijn DOM wijzigt.
-     */
-    const nextStepButton =
-      configurator
-        .locator(
-          'a[data-way="next"]:visible',
-        )
-        .filter({
-          hasText: /volgende stap/i,
-        })
-        .first();
+  const nextStepButton = configurator
+    .locator('a:visible')
+    .filter({
+      hasText:
+        /volgende stap/i,
+    })
+    .first();
 
-    await expect(
-      nextStepButton,
-    ).toBeVisible({
-      timeout: 10_000,
-    });
+  await expect(
+    nextStepButton,
+  ).toBeVisible();
 
-    await nextStepButton.evaluate(
-      (element) => {
-        element.scrollIntoView({
-          block: 'center',
-          inline: 'center',
-        });
-      },
-    );
-
-    try {
-      /*
-       * Eerst een echte gebruikersklik proberen.
-       */
-      await nextStepButton.click({
-        timeout: 5_000,
-      });
-    } catch {
-      /*
-       * De configurator gebruikt JavaScript-links.
-       * Bij animaties of overlays activeren we de
-       * bestaande click-handler rechtstreeks.
-       */
-      await nextStepButton.evaluate(
-        (element) => {
-          (
-            element as HTMLElement
-          ).click();
-        },
-      );
-    }
-
-    try {
-      await waitForStepReady(
-        configurator,
-        nextStep,
-        12_000,
-      );
-
-      return;
-    } catch {
-      if (attempt === 3) {
-        throw new Error(
-          [
-            'Configuratiestap is niet doorgegaan',
-            `van ${currentStep.stepTitle}`,
-            `naar ${nextStep.stepTitle}`,
-          ].join(' '),
-        );
-      }
-    }
-  }
+  await nextStepButton.click();
 }
 
 /*
@@ -341,66 +146,6 @@ async function executeChoiceStep(
     step.stepTitle,
   );
 
-  /*
-   * Radio-opties worden rechtstreeks via hun
-   * toegankelijke naam geselecteerd.
-   */
-  if (step.optionRadioName) {
-    const radio = configurator
-      .getByRole('radio', {
-        name: step.optionRadioName,
-      })
-      .first();
-
-    await expect(
-      radio,
-    ).toBeAttached({
-      timeout: 15_000,
-    });
-
-    /*
-    * Wanneer de radio standaard al geselecteerd is,
-    * voert Playwright check() geen nieuwe klik uit.
-    *
-    * We activeren daarom altijd de onderliggende
-    * JavaScript-events van de configurator.
-    */
-    await radio.evaluate(
-      (
-        element: HTMLInputElement,
-      ) => {
-        const wasAlreadyChecked =
-          element.checked;
-
-        element.click();
-
-        /*
-        * Een klik op een reeds geselecteerde radio
-        * veroorzaakt niet altijd opnieuw input/change.
-        */
-        if (wasAlreadyChecked) {
-          element.dispatchEvent(
-            new Event('input', {
-              bubbles: true,
-            }),
-          );
-
-          element.dispatchEvent(
-            new Event('change', {
-              bubbles: true,
-            }),
-          );
-        }
-      },
-    );
-
-    await expect(
-      radio,
-    ).toBeChecked();
-
-    return;
-  }
-
   let option: Locator;
 
   if (step.optionSelector) {
@@ -408,49 +153,15 @@ async function executeChoiceStep(
       .locator(step.optionSelector)
       .first();
   } else if (step.optionImageName) {
-    const images = configurator.getByRole(
-      'img',
-      {
+    const image = configurator
+      .getByRole('img', {
         name: step.optionImageName,
-      },
-    );
+      })
+      .first();
 
-    let visibleImageIndex = -1;
+    await expect(image).toBeVisible();
 
-    await expect
-      .poll(
-        async () => {
-          const count = await images.count();
-
-          for (
-            let index = 0;
-            index < count;
-            index += 1
-          ) {
-            if (
-              await images
-                .nth(index)
-                .isVisible()
-                .catch(() => false)
-            ) {
-              visibleImageIndex = index;
-              return true;
-            }
-          }
-
-          return false;
-        },
-        {
-          timeout: 10_000,
-          message:
-            `Wachten op zichtbare configuratieafbeelding: ${step.optionImageName}`,
-        },
-      )
-      .toBe(true);
-
-    option = images
-      .nth(visibleImageIndex)
-      .locator('..');
+    option = image.locator('..');
   } else if (step.optionText) {
     option = await getFirstVisibleTextMatch(
       configurator,
@@ -513,13 +224,8 @@ export async function runConfigurator(
       continue;
     }
 
-    const nextStep =
-      steps[index + 1];
-
     await clickNextStep(
       configurator,
-      step,
-      nextStep,
     );
   }
 }

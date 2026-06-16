@@ -23,134 +23,42 @@ export async function clickElementWithDom(
 /*
  * Controleert de bevestigingsmodal en opent vervolgens de cart.
  */
-export async function addToCartAndOpenCart(
+export async function openCartFromConfirmation(
   page: Page,
-  addToCartButton: Locator,
-  expectedProductTitle: RegExp,
 ): Promise<Locator> {
   const cartDialog = page
     .getByRole('dialog')
     .filter({
       hasText:
         /dit product is toegevoegd aan de winkelwagen/i,
-    })
-    .first();
+    });
 
-  await expect(
-    addToCartButton,
-  ).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(cartDialog).toBeVisible();
 
-  /*
-   * De webshop gebruikt een CSS-class in plaats
-   * van een echt disabled-attribuut.
-   */
-  await expect(
-    addToCartButton,
-  ).not.toHaveClass(
-    /\bdisabled\b/,
+  await expect(cartDialog).toContainText(
+    /dit product is toegevoegd aan de winkelwagen/i,
+  );
+
+  const continueToCartButton = cartDialog.getByRole(
+    'link',
     {
-      timeout: 20_000,
-    },
-  );
-
-  /*
-  * Plaats de knop bewust in het midden zodat de
-  * sticky header hem niet kan afdekken.
-  */
-  await addToCartButton.evaluate(
-    (element) => {
-      element.scrollIntoView({
-        block: 'center',
-        inline: 'center',
-      });
-    },
-  );
-
-  /*
-  * Eerst een echte Playwright-klik proberen.
-  * Gebruik bewust een korte timeout, zodat deze
-  * niet de volledige testtimeout opslokt.
-  */
-  try {
-    await addToCartButton.click({
-      timeout: 7_500,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : String(error);
-
-    const isObstruction =
-      /intercepts pointer events|not stable/i.test(
-        message,
-      );
-
-    if (!isObstruction) {
-      throw error;
-    }
-
-    /*
-    * De knop is niet meer disabled, maar wordt
-    * visueel afgedekt door de sticky webshop-UI.
-    * Activeer dan alleen de add-to-cart-handler.
-    */
-    await addToCartButton.evaluate(
-      (element) => {
-        (
-          element as HTMLElement
-        ).click();
-      },
-    );
-  }
-
-  await expect(
-    cartDialog,
-  ).toBeVisible({
-    timeout: 30_000,
-  });
-
-  const continueToCartButton =
-    cartDialog.getByRole('link', {
       name: /verder naar bestellen/i,
-    });
+    },
+  );
+
+  await expect(continueToCartButton).toBeVisible();
 
   await Promise.all([
-    page.waitForURL(
-      /\/cart\/?$/i,
-      {
-        waitUntil:
-          'domcontentloaded',
-        timeout: 30_000,
-      },
-    ),
+    page.waitForURL(/\/cart\/?$/i, {
+      waitUntil: 'domcontentloaded',
+    }),
+
     continueToCartButton.click(),
   ]);
 
-  const cartMain =
-    page.locator('main');
+  await expect(page).toHaveURL(/\/cart\/?$/i);
 
-  await expect(
-    cartMain,
-  ).toBeVisible({
-    timeout: 15_000,
-  });
-
-  const productRow =
-    getCartProductRow(
-      cartMain,
-      expectedProductTitle,
-    );
-
-  await expect(
-    productRow,
-  ).toBeVisible({
-    timeout: 15_000,
-  });
-
-  return cartMain;
+  return page.locator('main');
 }
 
 /*

@@ -12,10 +12,11 @@ import {
 } from '../helpers/cookies';
 
 import {
-  addToCartAndOpenCart,
   assertHandlingFee,
+  clickElementWithDom,
   getCartProductRow,
   openAndCheckCheckout,
+  openCartFromConfirmation,
 } from '../helpers/cart';
 
 import {
@@ -78,43 +79,15 @@ for (const shop of shops) {
                   )
                   .first();
 
+              await clickElementWithDom(
+                addToCartButton,
+              );
             },
           );
 
-          const addToCartButton = page
-            .locator(
-              'main a.add-cart.cart-btn:visible',
-            )
-            .first();
-            
-          await expect(
-            addToCartButton,
-          ).toBeVisible({
-            timeout: 10_000,
-          });
-
           const cartMain =
-            await test.step(
-              'Product toevoegen aan winkelwagen',
-              async () => {
-                const addToCartButton =
-                  page
-                    .locator(
-                      shop.selectors
-                        .addToCartButton,
-                    )
-                    .filter({
-                      hasText:
-                        /in mijn winkelwagen/i,
-                    })
-                    .first();
-
-                return addToCartAndOpenCart(
-                  page,
-                  addToCartButton,
-                  product.cartTitle,
-                );
-              },
+            await openCartFromConfirmation(
+              page,
             );
 
           await test.step(
@@ -240,41 +213,21 @@ for (const shop of shops) {
             },
           );
 
-          const addToCartButton = page
-            .locator(
-              'main a.add-cart.cart-btn:visible',
-            )
-            .first();
-            
-          await expect(
-            addToCartButton,
-          ).toBeVisible({
-            timeout: 10_000,
-          });
+          await test.step(
+            'Product toevoegen aan winkelwagen',
+            async () => {
+              const addToCartButton = page
+                .locator(shop.selectors.addToCartButton)
+                .first();
+
+              await clickElementWithDom(
+                addToCartButton,
+              );
+            },
+          );
 
           const cartMain =
-            await test.step(
-              'Product toevoegen aan winkelwagen',
-              async () => {
-                const addToCartButton =
-                  page
-                    .locator(
-                      shop.selectors
-                        .addToCartButton,
-                    )
-                    .filter({
-                      hasText:
-                        /in mijn winkelwagen/i,
-                    })
-                    .first();
-
-                return addToCartAndOpenCart(
-                  page,
-                  addToCartButton,
-                  product.cartTitle,
-                );
-              },
-            );
+            await openCartFromConfirmation(page);
 
           await test.step(
             'Product en aantal in winkelwagen controleren',

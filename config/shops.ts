@@ -36,12 +36,12 @@ export type TextConfiguratorStep = {
 
 export type ChoiceConfiguratorStep = {
   type: 'choice';
+
   stepTitle: RegExp;
 
   optionText?: RegExp;
   optionSelector?: string;
   optionImageName?: RegExp;
-  optionRadioName?: RegExp;
 
   expectedCartText: RegExp;
 };
@@ -203,11 +203,11 @@ export const shops: ShopConfig[] = [
             stepTitle:
               /coating voor binnen of buiten/i,
 
-            optionRadioName:
-              /voor binnen.*standaard/i,
+            optionText:
+              /^voor binnen - standaard$/i,
 
             expectedCartText:
-              /voor binnen.*standaard/i,
+              /voor binnen - standaard/i,
           },
 
           /*

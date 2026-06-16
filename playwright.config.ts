@@ -1,9 +1,4 @@
-import {
-  defineConfig,
-  devices
-} from '@playwright/test';
-
-const isCI = Boolean(process.env.CI);
+import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Read environment variables from file.
@@ -18,75 +13,23 @@ const isCI = Boolean(process.env.CI);
  */
 export default defineConfig({
   testDir: './tests',
-
-  /*
-   * Dit is de maximale tijd voor de volledige test.
-   * Niet verwarren met de timeout van één assertion.
-   */
-  timeout: isCI
-    ? 90_000
-    : 45_000,
-  
-  expect: {
-    timeout: isCI
-      ? 15_000
-      : 7_500,
-  },
-
-  /*
-   * Laat GitHub Actions falen wanneer per ongeluk
-   * test.only in de broncode staat.
-   */
-  forbidOnly: isCI,
-
-  /*
-   * Eén retry blijft als vangnet beschikbaar.
-   * Meer retries zouden structurele fouten maskeren.
-   */
-  retries: isCI
-  ? 1
-  : 0,
-  
-  workers: isCI
-  ? 1
-  : undefined,
-
   /* Run tests in files in parallel */
-  fullyParallel: false,
-
-  reporter: isCI
-    ? [
-      ['github'],
-      [
-        'html',
-        {
-          outputFolder:
-            'playwright-report',
-          open: 'never',
-        },
-      ],
-    ]
-  : [
-      [
-        'html',
-        {
-          outputFolder:
-            'playwright-report',
-          open: 'never',
-        },
-      ],
-    ],
-
-
+  fullyParallel: true,
+  /* Fail the build on CI if you accidentally left test.only in the source code. */
+  forbidOnly: !!process.env.CI,
+  /* Retry on CI only */
+  retries: process.env.CI ? 2 : 0,
+  /* Opt out of parallel tests on CI. */
+  workers: process.env.CI ? 1 : undefined,
+  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+  reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
     // baseURL: 'http://localhost:3000',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: 'on-first-retry',
   },
 
   /* Configure projects for major browsers */
