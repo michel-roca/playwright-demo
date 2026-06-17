@@ -43,20 +43,93 @@ async function getFirstVisibleTextMatch(
  */
 async function clickNextStep(
   configurator: Locator,
+  nextStep: ConfiguratorStep,
 ): Promise<void> {
-  const nextStepButton = configurator
-    .locator('a:visible')
+  const getNextStepButton = () =>
+    configurator
+      .locator(
+        '.step-wrap:visible a[data-way="next"]:visible',
+      )
+      .filter({
+        hasText: /volgende stap/i,
+      })
+      .first();
+
+  /*
+   * Controleer echte zichtbaarheid, niet de classes
+   * "visible" en "active" van het thema.
+   */
+  const nextStepPanel = configurator
+    .locator('.step-wrap:visible')
     .filter({
-      hasText:
-        /volgende stap/i,
+      hasText: nextStep.stepTitle,
     })
     .first();
 
+  const nextStepButton =
+    getNextStepButton();
+
   await expect(
     nextStepButton,
-  ).toBeVisible();
+  ).toBeVisible({
+    timeout: 10_000,
+  });
 
-  await nextStepButton.click();
+  await nextStepButton.evaluate(
+    (element) => {
+      element.scrollIntoView({
+        block: 'center',
+        inline: 'center',
+      });
+    },
+  );
+
+  try {
+    await nextStepButton.click({
+      timeout: 3_000,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String(error);
+
+    const isAnimationOrOverlay =
+      /intercepts pointer events|not stable|not visible/i.test(
+        message,
+      );
+
+    if (!isAnimationOrOverlay) {
+      throw error;
+    }
+
+    /*
+     * De configurator rendert de knop tijdens
+     * de overgang opnieuw. Zoek hem daarom opnieuw.
+     */
+    const freshNextStepButton =
+      getNextStepButton();
+
+    await expect(
+      freshNextStepButton,
+    ).toBeAttached({
+      timeout: 5_000,
+    });
+
+    await freshNextStepButton.evaluate(
+      (element) => {
+        (
+          element as HTMLElement
+        ).click();
+      },
+    );
+  }
+
+  await expect(
+    nextStepPanel,
+  ).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 /*
@@ -224,8 +297,12 @@ export async function runConfigurator(
       continue;
     }
 
+    const nextStep =
+      steps[index + 1];
+
     await clickNextStep(
       configurator,
+      nextStep,
     );
   }
 }
