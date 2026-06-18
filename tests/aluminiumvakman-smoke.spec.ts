@@ -61,6 +61,12 @@ for (const shop of shops) {
           await test.step(
             'Alle configuratiestappen doorlopen',
             async () => {
+              await expect(
+                configurator,
+              ).toBeVisible({
+                timeout: 15_000,
+              });
+
               await runConfigurator(
                 configurator,
                 product.steps,
