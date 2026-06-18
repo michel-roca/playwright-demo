@@ -1,0 +1,47 @@
+name: Playwright - Handmatig
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aluminiumvakman-production-smoke-tests
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: ALUMINIUMvakman smoke tests
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository ophalen
+        uses: actions/checkout@v5
+
+      - name: Node.js installeren
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: NPM dependencies installeren
+        run: npm ci
+
+      - name: TypeScript controleren
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Playwright browsers installeren
+        run: npx playwright install --with-deps
+
+      - name: Playwright-tests uitvoeren
+        run: npx playwright test
+
+      - name: Playwright-rapport uploaden
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-manual-${{ github.run_id }}-${{ github.run_attempt }}
+          path: playwright-report/
+          retention-days: 30
