@@ -25,7 +25,7 @@ export async function clickElementWithDom(
  */
 export async function openCartFromConfirmation(
   page: Page,
-): Promise<void> {
+): Promise<Locator> {
   const confirmationMessage = page
     .getByText(
       /dit product is toegevoegd aan de winkelwagen/i,
@@ -44,7 +44,7 @@ export async function openCartFromConfirmation(
     )
     .filter({
       hasText:
-        /^(naar|bekijk) (de )?winkelwagen$/i,
+        /^(verder naar bestellen|naar de winkelwagen|bekijk de winkelwagen)$/i,
     })
     .first();
 
@@ -70,6 +70,18 @@ export async function openCartFromConfirmation(
   ).toHaveURL(
     /\/cart\/?$/i,
   );
+
+  const cartMain = page
+    .locator('main')
+    .first();
+
+  await expect(
+    cartMain,
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+
+  return cartMain;
 }
 
 /*
