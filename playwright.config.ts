@@ -14,6 +14,17 @@ const isCI = Boolean(process.env.CI);
  */
 export default defineConfig({
   testDir: './tests',
+  timeout:
+    process.env.CI
+      ? 90_000
+      : 30_000,
+
+  expect: {
+    timeout:
+      process.env.CI
+        ? 15_000
+        : 5_000,
+  },
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

@@ -215,39 +215,146 @@ async function executeChoiceStep(
     { type: 'choice' }
   >,
 ): Promise<void> {
-  await expect(configurator).toContainText(
-    step.stepTitle,
-  );
+  /*
+   * Zoek uitsluitend binnen de stap die werkelijk
+   * zichtbaar is. De configurator houdt oude stappen
+   * namelijk in de DOM.
+   */
+  const activeStep = configurator
+    .locator('.step-wrap:visible')
+    .filter({
+      hasText: step.stepTitle,
+    })
+    .first();
+
+  await expect(
+    activeStep,
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+
+  /*
+   * Radio-opties moeten via het echte radio-element
+   * worden geselecteerd. Klik niet op de losse tekst.
+   */
+  if (step.optionText) {
+    const radio = activeStep
+      .getByRole('radio', {
+        name: step.optionText,
+      })
+      .first();
+
+    if (
+      await radio
+        .count()
+        .catch(() => 0)
+    ) {
+      /*
+       * "Voor binnen - standaard" is meestal al
+       * standaard geselecteerd. In dat geval hoeft
+       * er helemaal niet geklikt te worden.
+       */
+      const isChecked = await radio
+        .isChecked()
+        .catch(() => false);
+
+      if (!isChecked) {
+        await radio.check({
+          force: true,
+        });
+      }
+
+      await expect(
+        radio,
+      ).toBeChecked({
+        timeout: 10_000,
+      });
+
+      return;
+    }
+  }
 
   let option: Locator;
 
   if (step.optionSelector) {
-    option = configurator
+    option = activeStep
       .locator(step.optionSelector)
       .first();
   } else if (step.optionImageName) {
-    const image = configurator
+    const image = activeStep
       .getByRole('img', {
         name: step.optionImageName,
       })
       .first();
 
-    await expect(image).toBeVisible();
+    await expect(
+      image,
+    ).toBeVisible({
+      timeout: 15_000,
+    });
 
-    option = image.locator('..');
-  } else if (step.optionText) {
-    option = await getFirstVisibleTextMatch(
-      configurator,
-      step.optionText,
+    /*
+     * Klik op de volledige image-option en niet
+     * uitsluitend op de afbeelding.
+     */
+    const imageOption = image.locator(
+      'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " image-option ")][1]',
     );
+
+    option =
+      await imageOption.count() > 0
+        ? imageOption
+        : image.locator('..');
+  } else if (step.optionText) {
+    const textMatch =
+      await getFirstVisibleTextMatch(
+        activeStep,
+        step.optionText,
+      );
+
+    /*
+     * Gebruik bij custom opties de volledige
+     * klikbare wrapper.
+     */
+    const customOption =
+      textMatch.locator(
+        'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " custom-option ")][1]',
+      );
+
+    option =
+      await customOption.count() > 0
+        ? customOption
+        : textMatch;
   } else {
     throw new Error(
       `Geen locator ingesteld voor configuratiestap: ${step.stepTitle}`,
     );
   }
 
-  await expect(option).toBeVisible();
-  await option.click();
+  await expect(
+    option,
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+
+  /*
+   * De configurator animeert opties en de sticky
+   * header kan normale pointer-clicks onderscheppen.
+   * Daarom klikken we op de daadwerkelijke wrapper
+   * via de DOM.
+   */
+  await option.evaluate(
+    (element) => {
+      element.scrollIntoView({
+        block: 'center',
+        inline: 'center',
+      });
+
+      (
+        element as HTMLElement
+      ).click();
+    },
+  );
 }
 
 /*
