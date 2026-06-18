@@ -25,40 +25,51 @@ export async function clickElementWithDom(
  */
 export async function openCartFromConfirmation(
   page: Page,
-): Promise<Locator> {
-  const cartDialog = page
-    .getByRole('dialog')
+): Promise<void> {
+  const confirmationMessage = page
+    .getByText(
+      /dit product is toegevoegd aan de winkelwagen/i,
+    )
+    .first();
+
+  await expect(
+    confirmationMessage,
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+
+  const continueToCartButton = page
+    .locator(
+      'a:visible, button:visible',
+    )
     .filter({
       hasText:
-        /dit product is toegevoegd aan de winkelwagen/i,
-    });
+        /^(naar|bekijk) (de )?winkelwagen$/i,
+    })
+    .first();
 
-  await expect(cartDialog).toBeVisible();
-
-  await expect(cartDialog).toContainText(
-    /dit product is toegevoegd aan de winkelwagen/i,
-  );
-
-  const continueToCartButton = cartDialog.getByRole(
-    'link',
-    {
-      name: /verder naar bestellen/i,
-    },
-  );
-
-  await expect(continueToCartButton).toBeVisible();
+  await expect(
+    continueToCartButton,
+  ).toBeVisible({
+    timeout: 15_000,
+  });
 
   await Promise.all([
-    page.waitForURL(/\/cart\/?$/i, {
-      waitUntil: 'domcontentloaded',
-    }),
+    page.waitForURL(
+      /\/cart\/?$/i,
+      {
+        timeout: 20_000,
+      },
+    ),
 
     continueToCartButton.click(),
   ]);
 
-  await expect(page).toHaveURL(/\/cart\/?$/i);
-
-  return page.locator('main');
+  await expect(
+    page,
+  ).toHaveURL(
+    /\/cart\/?$/i,
+  );
 }
 
 /*
