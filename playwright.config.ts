@@ -14,6 +14,11 @@ const isCI = Boolean(process.env.CI);
  */
 export default defineConfig({
   testDir: './tests',
+  testIgnore: [
+    '**/*-temp.spec.ts',
+    '**/drafts/**',
+  ],
+  
   timeout:
     process.env.CI
       ? 90_000
