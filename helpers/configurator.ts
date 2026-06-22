@@ -45,90 +45,50 @@ async function clickNextStep(
   configurator: Locator,
   nextStep: ConfiguratorStep,
 ): Promise<void> {
-  const getNextStepButton = () =>
-    configurator
-      .locator(
-        '.step-wrap:visible a[data-way="next"]:visible',
-      )
-      .filter({
-        hasText: /volgende stap/i,
-      })
-      .first();
+  const currentStep = configurator
+    .locator('.step-wrap.active:visible')
+    .first();
+
+  const nextStepButton = currentStep
+    .locator('a:visible')
+    .filter({
+      hasText: /volgende stap/i,
+    })
+    .first();
+
+  await expect(
+    nextStepButton,
+  ).toBeVisible({
+    timeout: 15_000,
+  });
 
   /*
-   * Controleer echte zichtbaarheid, niet de classes
-   * "visible" en "active" van het thema.
+   * DOM-click voorkomt dat overlays of sticky elementen
+   * de normale pointer-click onderscheppen.
    */
-  const nextStepPanel = configurator
-    .locator('.step-wrap:visible')
+  await nextStepButton.evaluate(
+    (element) => {
+      (
+        element as HTMLElement
+      ).click();
+    },
+  );
+
+  /*
+   * Niet alleen wachten tot de volgende stap zichtbaar is,
+   * maar totdat deze daadwerkelijk de actieve stap is.
+   */
+  const nextActiveStep = configurator
+    .locator('.step-wrap.active:visible')
     .filter({
       hasText: nextStep.stepTitle,
     })
     .first();
 
-  const nextStepButton =
-    getNextStepButton();
-
   await expect(
-    nextStepButton,
+    nextActiveStep,
   ).toBeVisible({
-    timeout: 10_000,
-  });
-
-  await nextStepButton.evaluate(
-    (element) => {
-      element.scrollIntoView({
-        block: 'center',
-        inline: 'center',
-      });
-    },
-  );
-
-  try {
-    await nextStepButton.click({
-      timeout: 3_000,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : String(error);
-
-    const isAnimationOrOverlay =
-      /intercepts pointer events|not stable|not visible/i.test(
-        message,
-      );
-
-    if (!isAnimationOrOverlay) {
-      throw error;
-    }
-
-    /*
-     * De configurator rendert de knop tijdens
-     * de overgang opnieuw. Zoek hem daarom opnieuw.
-     */
-    const freshNextStepButton =
-      getNextStepButton();
-
-    await expect(
-      freshNextStepButton,
-    ).toBeAttached({
-      timeout: 5_000,
-    });
-
-    await freshNextStepButton.evaluate(
-      (element) => {
-        (
-          element as HTMLElement
-        ).click();
-      },
-    );
-  }
-
-  await expect(
-    nextStepPanel,
-  ).toBeVisible({
-    timeout: 10_000,
+    timeout: 15_000,
   });
 }
 
@@ -221,7 +181,7 @@ async function executeChoiceStep(
    * namelijk in de DOM.
    */
   const activeStep = configurator
-    .locator('.step-wrap:visible')
+    .locator('.step-wrap.active:visible')
     .filter({
       hasText: step.stepTitle,
     })
@@ -289,22 +249,21 @@ async function executeChoiceStep(
 
     await expect(
       image,
-    ).toBeVisible({
+    ).toBeAttached({
       timeout: 15_000,
     });
 
-    /*
-     * Klik op de volledige image-option en niet
-     * uitsluitend op de afbeelding.
-     */
     const imageOption = image.locator(
       'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " image-option ")][1]',
     );
 
-    option =
-      await imageOption.count() > 0
-        ? imageOption
-        : image.locator('..');
+    await expect(
+      imageOption,
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+
+    option = imageOption;
   } else if (step.optionText) {
     const textMatch =
       await getFirstVisibleTextMatch(
