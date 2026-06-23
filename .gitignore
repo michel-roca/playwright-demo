@@ -1,4 +1,6 @@
 
+.DS_Store
+
 # Playwright
 node_modules/
 /test-results/

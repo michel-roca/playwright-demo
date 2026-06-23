@@ -131,7 +131,7 @@ export const shops: ShopConfig[] = [
           'hoek-30x30x2-ral9004',
 
         path:
-          '/aluminium-hoekprofiel-zwart-30x30x2-mm-copy.html',
+          '/hoekprofiel-aluminium-30x30x2-mm-zwart.html',
 
         pageTitle:
           /aluminium hoekprofiel.*30x30x2 mm/i,
@@ -187,10 +187,10 @@ export const shops: ShopConfig[] = [
               /kies uw ral kleur/i,
 
             optionImageName:
-              /ral 9005/i,
+              /ral\s+9005/i,
 
             expectedCartText:
-              /ral 9005/i,
+              /ral\s+9005/i,
           },
 
           /*
@@ -240,10 +240,10 @@ export const shops: ShopConfig[] = [
           'Lakstift-9016',
 
         path:
-          '/lakstift-tbv-coating-20-ml-lak-copy.html',
+          '/lakstift-tbv-coating-20-ml-lak.html',
 
         pageTitle:
-          /lakstift.*20 ml.*testproduct/i,
+          /lakstift.*20 ml/i,
         
         cartTitle:
           /lakstift.*20 ml/i,
